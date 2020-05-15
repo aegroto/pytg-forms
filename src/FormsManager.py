@@ -32,10 +32,10 @@ class FormsManager(Manager):
         data_manager = ModulesLoader.load_manager("data")
 
         form_id = chat_id
-        if not data_manager.has_data("forms", form_id):
+        if not data_manager.has_data("forms", form_id, module="forms"):
             return
 
-        form_data = data_manager.load_data("forms", form_id)
+        form_data = data_manager.load_data("forms", form_id, module="forms")
 
         # Clear form messages
         if delete_messages: # (not form_data["digested"]) and delete_messages:
@@ -49,7 +49,7 @@ class FormsManager(Manager):
                     logging.info("Unable to delete message {}".format(form_message_id))
 
         # Update form data
-        data_manager.delete_data("forms", form_id)
+        data_manager.delete_data("forms", form_id, module="forms")
 
     def start_form(self, bot, chat_id, form_name, form_meta={}):
         logging.info("Starting form {} for {}".format(form_name, chat_id))
@@ -60,14 +60,14 @@ class FormsManager(Manager):
         self.clear_user_form_data(bot, chat_id)
 
         form_id = chat_id
-        data_manager.create_data("forms", form_id)
+        data_manager.create_data("forms", form_id, module="forms")
 
         # Show form to user
         steps = self.load_form_steps(form_name)
 
         first_step = steps["meta"]["first_step"]
 
-        form_data = data_manager.load_data("forms", form_id)
+        form_data = data_manager.load_data("forms", form_id, module="forms")
 
         form_data["form_name"] = form_name
         form_data["current_step"] = first_step
@@ -80,7 +80,7 @@ class FormsManager(Manager):
             for entry in default_entries.keys():
                 form_data["form_entries"][entry] = default_entries[entry]
 
-        data_manager.save_data("forms", form_id, form_data)
+        data_manager.save_data("forms", form_id, form_data, module="forms")
 
         self.show_current_step(bot, chat_id)
 
@@ -89,7 +89,7 @@ class FormsManager(Manager):
 
         form_id = chat_id
 
-        form_data = data_manager.load_data("forms", form_id)
+        form_data = data_manager.load_data("forms", form_id, module="forms")
         form_name = form_data["form_name"]
         form_steps = self.load_form_steps(form_name)
 
@@ -113,7 +113,7 @@ class FormsManager(Manager):
                 return 
 
             form_data["current_step"] = next_step
-            data_manager.save_data("forms", form_id, form_data)
+            data_manager.save_data("forms", form_id, form_data, module="forms")
             self.show_current_step(bot, chat_id)
         else:
             if "void" in form_steps["meta"] and form_steps["meta"]["void"]:
@@ -127,12 +127,12 @@ class FormsManager(Manager):
         data_manager = ModulesLoader.load_manager("data")
 
         # Load form's data 
-        form_data = data_manager.load_data("forms", form_id)
+        form_data = data_manager.load_data("forms", form_id, module="forms")
         form_name = form_data["form_name"]
 
         # Update digestion flag
         form_data["digested"] = True
-        data_manager.save_data("forms", form_id, form_data)
+        data_manager.save_data("forms", form_id, form_data, module="forms")
 
         # Digest the form
         digester = self.digesters[form_name]
@@ -217,7 +217,7 @@ class FormsManager(Manager):
 
         form_id = chat_id
 
-        form_data = data_manager.load_data("forms", form_id)
+        form_data = data_manager.load_data("forms", form_id, module="forms")
         form_name = form_data["form_name"]
         form_steps = self.load_form_steps(form_name)
 
@@ -285,7 +285,7 @@ class FormsManager(Manager):
 
             if step_output not in form_data["form_entries"].keys():
                 form_data["form_entries"][step_output] = []
-                data_manager.save_data("forms", form_id, form_data)
+                data_manager.save_data("forms", form_id, form_data, module="forms")
 
             entries = current_step_data["entries"]
             reply_markup = self.checkbox_list_reply_markup(entries, form_data, current_step_data)
@@ -363,9 +363,9 @@ class FormsManager(Manager):
 
             # Add new message IDs
             if data_manager.has_data("forms",form_id):
-                form_data = data_manager.load_data("forms", form_id)
+                form_data = data_manager.load_data("forms", form_id, module="forms")
                 form_data["messages"].append(sent_message.message_id)
-                data_manager.save_data("forms", form_id, form_data)
+                data_manager.save_data("forms", form_id, form_data, module="forms")
 
         if next_step is not "__NULL":
             self.set_next_step(bot, chat_id, sent_message.message_id, next_step = next_step)
@@ -416,9 +416,9 @@ class FormsManager(Manager):
                     cache_manager.download_animation(input_data["animation_id"], input_data["animation_url"])
 
             current_user_form_id = chat_id
-            form_data = data_manager.load_data("forms", current_user_form_id)
+            form_data = data_manager.load_data("forms", current_user_form_id, module="forms")
             form_data["form_entries"][step_data["output"]] = step_output
-            data_manager.save_data("forms", current_user_form_id, form_data)
+            data_manager.save_data("forms", current_user_form_id, form_data, module="forms")
 
         self.set_next_step(bot, chat_id, message_id, next_step=next_step_name)
 

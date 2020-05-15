@@ -23,12 +23,12 @@ def text_message_handler(update, context):
     data_manager = ModulesLoader.load_manager("data")
 
     # Check if the bot is waiting for a form input 
-    if data_manager.has_data("forms", chat_id):
+    if data_manager.has_data("forms", chat_id, module="forms"):
         current_user_form_id = chat_id
 
         forms_manager = ModulesLoader.load_manager("forms")
 
-        form_data = data_manager.load_data("forms", current_user_form_id)
+        form_data = data_manager.load_data("forms", current_user_form_id, module="forms")
 
         if form_data["digested"]:
             return
