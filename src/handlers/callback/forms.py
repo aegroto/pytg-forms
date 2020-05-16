@@ -20,7 +20,7 @@ def forms_callback_handler(update, context):
     if query_data[1] == "fixed_reply":
         data_manager = ModulesLoader.load_manager("data")
 
-        form_data = data_manager.load_data("forms", chat_id)
+        form_data = data_manager.load_data("forms", chat_id, module="forms")
 
         step_name = form_data["current_step"]
         form_name = form_data["form_name"]
@@ -66,13 +66,13 @@ def forms_callback_handler(update, context):
         form_id = chat_id
 
         data_manager = ModulesLoader.load_manager("data")
-        form_data = data_manager.load_data("forms", form_id)
+        form_data = data_manager.load_data("forms", form_id, module="forms")
 
         if entry in form_data["form_entries"][step_output]:
             form_data["form_entries"][step_output].remove(entry)
         else:
             form_data["form_entries"][step_output].append(entry)
 
-        data_manager.save_data("forms", form_id, form_data)
+        data_manager.save_data("forms", form_id, form_data, module="forms")
 
         forms_manager.show_current_step(bot, chat_id, message_id)
