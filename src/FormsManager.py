@@ -176,6 +176,24 @@ class FormsManager(Manager):
 
         return reply_markup
 
+    def keyboard_reply_reply_markup(self, options, form_data, current_step_data):
+        form_name = form_data["form_name"]
+        step_name = form_data["current_step"]
+
+        menu_layout = []
+
+        for options_row in options:
+            row = []
+
+            for option in options_row:
+                row.append(KeyboardButton(option["text"]))
+
+            menu_layout.append(row)
+
+        reply_markup = ReplyKeyboardMarkup(menu_layout, resize_keyboard=True, one_time_keyboard=True)
+
+        return reply_markup
+
     def checkbox_list_reply_markup(self, entries, form_data, current_step_data):
         form_name = form_data["form_name"]
         step_name = form_data["current_step"]
@@ -273,6 +291,18 @@ class FormsManager(Manager):
 
             options = current_step_data["options"]
             reply_markup = self.fixed_reply_reply_markup(options, form_data, current_step_data)
+
+        # Keyboard reply
+        if current_step_data["type"] == "keyboard_reply":
+            # Format step text (if necessary)
+            step_text = current_step_data["text"]
+
+            if "format" in current_step_data.keys() and current_step_data["format"]:
+                form_entries = form_data["form_entries"]
+                step_text = self.format_step_text(step_text, form_entries)
+
+            options = current_step_data["options"]
+            reply_markup = self.keyboard_reply_reply_markup(options, form_data, current_step_data)
 
         # Checkbox list 
         if current_step_data["type"] == "checkbox_list":
@@ -394,6 +424,9 @@ class FormsManager(Manager):
             elif step_data["type"] == "fixed_reply":
                 step_output = input_data["output_data"]
 
+            elif step_data["type"] == "keyboard_reply":
+                step_output = input_data["value"]
+
             elif step_data["type"] == "image_field":
                 step_output = input_data["image_id"]
 
@@ -427,7 +460,7 @@ class FormsManager(Manager):
 
         if not lang:
             config_manager = ModulesLoader.load_manager("config")
-            lang_settings = config_manager.load_settings_file("lang")
+            lang_settings = config_manager.load_settings_file("forms", "lang")
             lang = lang_settings["default"]
 
         return yaml.safe_load(open("{}/formats/{}/{}/steps.yaml".format(module_folder, lang, form_name), "r", encoding="utf8"))

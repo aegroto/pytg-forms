@@ -42,15 +42,26 @@ def text_message_handler(update, context):
             input_data = {
                 "text": text
             }
-        elif step_data["type"] == "image_field":
-            if not message.photo:
-                return 
 
-            photos = message.photo
+        elif step_data["type"] == "keyboard_reply":
+            replies_map = step_data["map"] 
+
+            if text not in replies_map.keys():
+                return
 
             input_data = {
-                "image_url": None 
+                "value": replies_map[text]
             }
+
+        # elif step_data["type"] == "image_field":
+        #     if not message.photo:
+        #         return 
+
+        #     photos = message.photo
+
+        #     input_data = {
+        #         "image_url": None 
+        #     }
         else:
             return
 
