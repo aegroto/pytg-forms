@@ -242,6 +242,15 @@ class FormsManager(Manager):
         step_name = form_data["current_step"]
         current_step_data = form_steps[step_name]
 
+
+        if "externs" in current_step_data.keys():
+            externs = current_step_data["externs"]
+
+            for extern_key in externs.keys():
+                extern_data = form_data["form_meta"][externs[extern_key]]
+
+                current_step_data[extern_key] = extern_data
+
         reply_markup = None
         next_step = "__NULL"
 
