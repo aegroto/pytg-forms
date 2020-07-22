@@ -207,7 +207,7 @@ class FormsManager(Manager):
 
             for entry in entries_row:
                 text = entry["text"]
-                data = entry["data"]
+                data = str(entry["data"])
 
                 checked = data in form_data["form_entries"][step_output]
 

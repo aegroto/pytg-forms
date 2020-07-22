@@ -60,7 +60,7 @@ def forms_callback_handler(update, context):
         forms_manager.start_form(bot, chat_id, form_name)
 
     if query_data[1] == "checkbox_click":
-        entry = query_data[2]
+        entry = str(query_data[2])
         step_output = query_data[3]
 
         form_id = chat_id
