@@ -30,8 +30,9 @@ def photo_message_handler(update, context):
         if form_data["digested"]:
             return
 
+        module_name = form_data["module_name"]
         form_name = form_data["form_name"]
-        form_steps = forms_manager.load_form_steps(form_name)
+        form_steps = forms_manager.load_form_steps(module_name, form_name)
 
         step_data = form_steps[form_data["current_step"]]
 
@@ -48,5 +49,5 @@ def photo_message_handler(update, context):
         }
 
         forms_manager = ModulesLoader.load_manager("forms")
-        forms_manager.handle_input(bot, chat_id, message_id, form_name, form_data["current_step"], input_data)
+        forms_manager.handle_input(bot, chat_id, message_id, module_name, form_name, form_data["current_step"], input_data)
 

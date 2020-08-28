@@ -23,7 +23,6 @@ def forms_callback_handler(update, context):
         form_data = data_manager.load_data("forms", chat_id, module="forms")
 
         step_name = form_data["current_step"]
-        form_name = form_data["form_name"]
 
         # step_name = query_data[2]
         # form_name = query_data[3]
@@ -39,7 +38,7 @@ def forms_callback_handler(update, context):
             reply_markup = None
         )
 
-        forms_manager.handle_input(bot, chat_id, message_id, form_name, step_name, input_data)
+        forms_manager.handle_input(bot, chat_id, message_id, form_data["module_name"], form_data["form_name"], step_name, input_data)
         return
 
     if query_data[1] == "jump":
@@ -71,8 +70,15 @@ def forms_callback_handler(update, context):
         if entry in form_data["form_entries"][step_output]:
             form_data["form_entries"][step_output].remove(entry)
         else:
+            form_steps = forms_manager.load_form_steps(form_data["module_name"], form_data["form_name"])
+
+            current_step_data = form_steps[form_data["current_step"]]
+
+            if "max_selections" in current_step_data and len(form_data["form_entries"][step_output]) >= current_step_data["max_selections"]:
+                return
+
             form_data["form_entries"][step_output].append(entry)
 
         data_manager.save_data("forms", form_id, form_data, module="forms")
 
-        forms_manager.show_current_step(bot, chat_id, message_id)
+        forms_manager.show_current_step(bot, chat_id, form_data["lang"], message_id)

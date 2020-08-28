@@ -41,4 +41,4 @@ def load_manager():
     return FormsManager.load()
 
 def depends_on():
-    return ["bot", "data", "cache"]
+    return ["bot", "data", "text"]

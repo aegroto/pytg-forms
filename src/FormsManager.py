@@ -5,6 +5,9 @@ from telegram import InlineKeyboardButton, InlineKeyboardMarkup, KeyboardButton,
 from modules.pytg.Manager import Manager
 from modules.pytg.ModulesLoader import ModulesLoader
 
+from .utils.reply_markup_builders import *
+from .utils.various import *
+
 class FormsManager(Manager):
     @staticmethod
     def initialize():
@@ -51,38 +54,45 @@ class FormsManager(Manager):
         # Update form data
         data_manager.delete_data("forms", form_id, module="forms")
 
-    def start_form(self, bot, chat_id, form_name, form_meta={}):
+    def start_form(self, bot, chat_id, module_name, form_name, form_meta={}, lang=None):
         logging.info("Starting form {} for {}".format(form_name, chat_id))
 
         data_manager = ModulesLoader.load_manager("data")
 
-        # Update user data
+        # Create user's form data
         self.clear_user_form_data(bot, chat_id)
 
         form_id = chat_id
         data_manager.create_data("forms", form_id, module="forms")
 
-        # Show form to user
-        steps = self.load_form_steps(form_name)
+        steps = self.load_form_steps(module_name, form_name)
 
-        first_step = steps["meta"]["first_step"]
+        first_step = steps["info"]["first_step"]
 
         form_data = data_manager.load_data("forms", form_id, module="forms")
 
+        form_data["module_name"] = module_name
         form_data["form_name"] = form_name
         form_data["current_step"] = first_step
         form_data["form_meta"] = form_meta
+        
+        if not lang:
+            config_manager = ModulesLoader.load_manager("config")
+            lang_settings = config_manager.load_settings_file("forms", "lang")
+            lang = lang_settings["default"]
+
+        form_data["lang"] = lang
 
         # Set default entries
-        if "default_entries" in steps["meta"].keys():
-            default_entries = steps["meta"]["default_entries"]
+        if "default_entries" in steps["info"].keys():
+            default_entries = steps["info"]["default_entries"]
 
             for entry in default_entries.keys():
                 form_data["form_entries"][entry] = default_entries[entry]
 
         data_manager.save_data("forms", form_id, form_data, module="forms")
 
-        self.show_current_step(bot, chat_id)
+        self.show_current_step(bot, chat_id, lang)
 
     def set_next_step(self, bot, chat_id, message_id, next_step=None):
         data_manager = ModulesLoader.load_manager("data")
@@ -90,8 +100,9 @@ class FormsManager(Manager):
         form_id = chat_id
 
         form_data = data_manager.load_data("forms", form_id, module="forms")
+        module_name = form_data["module_name"]
         form_name = form_data["form_name"]
-        form_steps = self.load_form_steps(form_name)
+        form_steps = self.load_form_steps(module_name, form_name)
 
         current_step_data = form_steps[form_data["current_step"]]
 
@@ -114,9 +125,9 @@ class FormsManager(Manager):
 
             form_data["current_step"] = next_step
             data_manager.save_data("forms", form_id, form_data, module="forms")
-            self.show_current_step(bot, chat_id)
+            self.show_current_step(bot, chat_id, form_data["lang"])
         else:
-            if "void" in form_steps["meta"] and form_steps["meta"]["void"]:
+            if "void" in form_steps["info"] and form_steps["info"]["void"]:
                 return
 
             self.digest_form(bot, chat_id, form_id)
@@ -145,103 +156,18 @@ class FormsManager(Manager):
 
         return step_text
 
-    def append_jump_button(self, menu_layout, text, step_id):
-        menu_layout.append([InlineKeyboardButton(text, callback_data="forms,jump,{}".format(step_id))])
-
-    def fixed_reply_reply_markup(self, options, form_data, current_step_data):
-        form_name = form_data["form_name"]
-        step_name = form_data["current_step"]
-
-        menu_layout = []
-
-        for options_row in options:
-            row = []
-
-            for option in options_row:
-                action = ""
-
-                if "action" in option.keys():
-                    action = option["action"]
-
-                button_data = "forms,fixed_reply,{},{}".format(action, option["output_data"])
-
-                row.append(InlineKeyboardButton(option["text"], callback_data=button_data))
-
-            menu_layout.append(row)
-
-        if "previous_step" in current_step_data.keys():
-            self.append_jump_button(menu_layout, "Back", current_step_data["previous_step"])
-
-        reply_markup = InlineKeyboardMarkup(menu_layout)
-
-        return reply_markup
-
-    def keyboard_reply_reply_markup(self, options, form_data, current_step_data):
-        form_name = form_data["form_name"]
-        step_name = form_data["current_step"]
-
-        menu_layout = []
-
-        for options_row in options:
-            row = []
-
-            for option in options_row:
-                row.append(KeyboardButton(option["text"]))
-
-            menu_layout.append(row)
-
-        reply_markup = ReplyKeyboardMarkup(menu_layout, resize_keyboard=True, one_time_keyboard=True)
-
-        return reply_markup
-
-    def checkbox_list_reply_markup(self, entries, form_data, current_step_data):
-        form_name = form_data["form_name"]
-        step_name = form_data["current_step"]
-        step_output = current_step_data["output"]
-
-        # Add entries
-        menu_layout = []
-
-        for entries_row in entries:
-            row = []
-
-            for entry in entries_row:
-                text = entry["text"]
-                data = str(entry["data"])
-
-                checked = data in form_data["form_entries"][step_output]
-
-                button_data = "forms,checkbox_click,{},{}".format(data, step_output)
-
-                emoji = "✅" if checked else ""
-
-                row.append(InlineKeyboardButton("{} {}".format(text, emoji), callback_data=button_data))
-
-            menu_layout.append(row)
-
-        # Check if the step requires a back button
-        if "previous_step" in current_step_data.keys():
-            self.append_jump_button(menu_layout, "Back", current_step_data["previous_step"])
-
-        # Add 'Confirm' button
-        self.append_jump_button(menu_layout, "Confirm", current_step_data["confirm_step"])
-
-        reply_markup = InlineKeyboardMarkup(menu_layout)
-
-        return reply_markup
-
-    def show_current_step(self, bot, chat_id, message_id=None):
+    def show_current_step(self, bot, chat_id, lang, message_id=None):
         data_manager = ModulesLoader.load_manager("data")
 
         form_id = chat_id
 
         form_data = data_manager.load_data("forms", form_id, module="forms")
+        module_name = form_data["module_name"]
         form_name = form_data["form_name"]
-        form_steps = self.load_form_steps(form_name)
+        form_steps = self.load_form_steps(module_name, form_name)
 
         step_name = form_data["current_step"]
         current_step_data = form_steps[step_name]
-
 
         if "externs" in current_step_data.keys():
             externs = current_step_data["externs"]
@@ -254,18 +180,26 @@ class FormsManager(Manager):
         reply_markup = None
         next_step = "__NULL"
 
+        phrases = self.load_form_phrases(module_name, form_name, lang)
+
+        step_text = phrases[current_step_data["phrase"]]
+
+        if "format" in current_step_data.keys() and current_step_data["format"]:
+            form_entries = form_data["form_entries"]
+            step_text = self.format_step_text(step_text, form_entries)
+
+        # Replace macros in meta
+        for meta in form_data["form_meta"].keys():
+            macro = "[{}]".format(meta)
+
+            step_text = step_text.replace(macro, str(form_data["form_meta"][meta]))
+
         # Message 
         if current_step_data["type"] == "message":
-            step_text = current_step_data["text"]
-
-            if "format" in current_step_data.keys() and current_step_data["format"]:
-                form_entries = form_data["form_entries"]
-                step_text = self.format_step_text(step_text, form_entries)
-
             # Check if the step requires a back button
             if "previous_step" in current_step_data.keys():
                 menu_layout = []
-                self.append_jump_button(menu_layout, "Back", current_step_data["previous_step"])
+                append_jump_button(menu_layout, "Back", current_step_data["previous_step"])
                 reply_markup = InlineKeyboardMarkup(menu_layout)
 
             next_step = current_step_data["next_step"]
@@ -275,65 +209,34 @@ class FormsManager(Manager):
             current_step_data["type"] == "image_field" or
             current_step_data["type"] == "video_field" or
             current_step_data["type"] == "animation_field"):
-            step_text = current_step_data["text"]
-
-            if "format" in current_step_data.keys() and current_step_data["format"]:
-                form_entries = form_data["form_entries"]
-                step_text = self.format_step_text(step_text, form_entries)
-
             reply_markup = None
 
             # Check if the step requires a back button
             if "previous_step" in current_step_data.keys():
                 menu_layout = []
-                self.append_jump_button(menu_layout, "Back", current_step_data["previous_step"])
+                append_jump_button(menu_layout, "Back", current_step_data["previous_step"])
                 reply_markup = InlineKeyboardMarkup(menu_layout)
 
         # Fixed reply
         if current_step_data["type"] == "fixed_reply":
-            # Format step text (if necessary)
-            step_text = current_step_data["text"]
-
-            if "format" in current_step_data.keys() and current_step_data["format"]:
-                form_entries = form_data["form_entries"]
-                step_text = self.format_step_text(step_text, form_entries)
-
             options = current_step_data["options"]
-            reply_markup = self.fixed_reply_reply_markup(options, form_data, current_step_data)
+            reply_markup = fixed_reply_reply_markup(options, form_data, current_step_data)
 
         # Keyboard reply
         if current_step_data["type"] == "keyboard_reply":
-            # Format step text (if necessary)
-            step_text = current_step_data["text"]
-
-            if "format" in current_step_data.keys() and current_step_data["format"]:
-                form_entries = form_data["form_entries"]
-                step_text = self.format_step_text(step_text, form_entries)
-
             options = current_step_data["options"]
-            reply_markup = self.keyboard_reply_reply_markup(options, form_data, current_step_data)
+            reply_markup = keyboard_reply_reply_markup(options, form_data, current_step_data)
 
         # Checkbox list 
         if current_step_data["type"] == "checkbox_list":
-            step_text = current_step_data["text"]
             step_output = current_step_data["output"]
-
-            if "format" in current_step_data.keys() and current_step_data["format"]:
-                form_entries = form_data["form_entries"]
-                step_text = self.format_step_text(step_text, form_entries)
 
             if step_output not in form_data["form_entries"].keys():
                 form_data["form_entries"][step_output] = []
                 data_manager.save_data("forms", form_id, form_data, module="forms")
 
             entries = current_step_data["entries"]
-            reply_markup = self.checkbox_list_reply_markup(entries, form_data, current_step_data)
-
-        # Replace macros in meta
-        for meta in form_data["form_meta"].keys():
-            macro = "[{}]".format(meta)
-
-            step_text = step_text.replace(macro, str(form_data["form_meta"][meta]))
+            reply_markup = checkbox_list_reply_markup(entries, form_data, current_step_data)
 
         # Disable web page preview option
         disable_web_page_preview = True
@@ -409,7 +312,7 @@ class FormsManager(Manager):
         if next_step is not "__NULL":
             self.set_next_step(bot, chat_id, sent_message.message_id, next_step = next_step)
 
-    def handle_input(self, bot, chat_id, message_id, form_name, step_name, input_data):
+    def handle_input(self, bot, chat_id, message_id, module_name, form_name, step_name, input_data):
         logging.info("Handling input of {} on form {} (step name = {}, input data = {})".format(chat_id, form_name, step_name, input_data))
 
         data_manager = ModulesLoader.load_manager("data")
@@ -423,7 +326,7 @@ class FormsManager(Manager):
             if actions[0] == "jump":
                 next_step_name = actions[1]
 
-        form_steps = self.load_form_steps(form_name)
+        form_steps = self.load_form_steps(module_name, form_name)
         step_data = form_steps[step_name]
 
         if "output" in step_data.keys():
@@ -439,23 +342,11 @@ class FormsManager(Manager):
             elif step_data["type"] == "image_field":
                 step_output = input_data["image_id"]
 
-                if step_data["save_in_cache"]:
-                    cache_manager = ModulesLoader.load_manager("cache")
-                    cache_manager.download_image(input_data["image_id"], input_data["image_url"])
-
             elif step_data["type"] == "video_field":
                 step_output = input_data["video_id"]
 
-                if step_data["save_in_cache"]:
-                    cache_manager = ModulesLoader.load_manager("cache")
-                    cache_manager.download_video(input_data["video_id"], input_data["video_url"])
-
             elif step_data["type"] == "animation_field":
                 step_output = input_data["animation_id"]
-
-                if step_data["save_in_cache"]:
-                    cache_manager = ModulesLoader.load_manager("cache")
-                    cache_manager.download_animation(input_data["animation_id"], input_data["animation_url"])
 
             current_user_form_id = chat_id
             form_data = data_manager.load_data("forms", current_user_form_id, module="forms")
@@ -464,12 +355,14 @@ class FormsManager(Manager):
 
         self.set_next_step(bot, chat_id, message_id, next_step=next_step_name)
 
-    def load_form_steps(self, form_name, lang=None):
-        module_folder = ModulesLoader.get_module_content_folder("forms")
+    def load_form_steps(self, module_name, form_name):
+        module_folder = ModulesLoader.get_module_content_folder(module_name)
 
-        if not lang:
-            config_manager = ModulesLoader.load_manager("config")
-            lang_settings = config_manager.load_settings_file("forms", "lang")
-            lang = lang_settings["default"]
+        return yaml.safe_load(open("{}/forms/formats/{}.yaml".format(module_folder, form_name), "r", encoding="utf8"))
 
-        return yaml.safe_load(open("{}/formats/{}/{}/steps.yaml".format(module_folder, lang, form_name), "r", encoding="utf8"))
+    def load_form_phrases(self, module_name, form_name, lang):
+        module_folder = ModulesLoader.get_module_content_folder(module_name)
+
+        return yaml.safe_load(open("{}/forms/phrases/{}/{}.yaml".format(module_folder, lang, form_name), "r", encoding="utf8"))
+
+
