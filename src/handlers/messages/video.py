@@ -21,11 +21,11 @@ def video_message_handler(update, context):
     data_manager = ModulesLoader.load_manager("data")
 
     # Check if the bot is waiting for a form input 
-    if data_manager.has_data("forms", chat_id, module="forms"):
+    if data_manager.has_data("forms", "forms", chat_id):
         current_user_form_id = chat_id
         forms_manager = ModulesLoader.load_manager("forms")
 
-        form_data = data_manager.load_data("forms", current_user_form_id, module="forms")
+        form_data = data_manager.load_data("forms", "forms", current_user_form_id)
 
         if form_data["digested"]:
             return
@@ -49,5 +49,5 @@ def video_message_handler(update, context):
         }
 
         forms_manager = ModulesLoader.load_manager("forms")
-        forms_manager.handle_input(bot, chat_id, message_id, module_name, form_name, form_data["current_step"], input_data)
+        forms_manager.handle_input(context, chat_id, message_id, module_name, form_name, form_data["current_step"], input_data)
 

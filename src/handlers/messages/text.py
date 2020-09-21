@@ -1,6 +1,8 @@
 import telegram, logging
 
-from modules.pytg.ModulesLoader import ModulesLoader
+from modules.pytg.load import manager
+
+logger = logging.getLogger(__name__)
 
 def text_message_handler(update, context):
     bot = context.bot
@@ -18,42 +20,42 @@ def text_message_handler(update, context):
 
     text = message.text
 
-    logging.info("Received text message update from {} ({}) in chat {}: {}".format(username, user_id, chat_id, text))
-
-    data_manager = ModulesLoader.load_manager("data")
+    logger.info("Received text message update from {} ({}) in chat {}: {}".format(username, user_id, chat_id, text))
 
     # Check if the bot is waiting for a form input 
-    if data_manager.has_data("forms", chat_id, module="forms"):
-        current_user_form_id = chat_id
+    if not manager("data").has_data("forms", "forms", chat_id):
+        logger.info("No form data available for this user")
+        return
 
-        forms_manager = ModulesLoader.load_manager("forms")
+    current_user_form_id = chat_id
 
-        form_data = data_manager.load_data("forms", current_user_form_id, module="forms")
+    form_data = manager("data").load_data("forms", "forms", current_user_form_id)
 
-        if form_data["digested"]:
+    if form_data["digested"]:
+        logger.info("Form has been digested")
+        return
+
+    module_name = form_data["module_name"]
+    form_name = form_data["form_name"]
+    form_steps = manager("forms").load_form_steps(module_name, form_name)
+
+    step_data = form_steps[form_data["current_step"]]
+
+    if step_data["type"] == "text_field":
+        input_data = {
+            "text": text
+        }
+
+    elif step_data["type"] == "keyboard_reply":
+        replies_map = step_data["map"] 
+
+        if text not in replies_map.keys():
             return
 
-        module_name = form_data["module_name"]
-        form_name = form_data["form_name"]
-        form_steps = forms_manager.load_form_steps(module_name, form_name)
+        input_data = {
+            "value": replies_map[text]
+        }
+    else:
+        return
 
-        step_data = form_steps[form_data["current_step"]]
-
-        if step_data["type"] == "text_field":
-            input_data = {
-                "text": text
-            }
-
-        elif step_data["type"] == "keyboard_reply":
-            replies_map = step_data["map"] 
-
-            if text not in replies_map.keys():
-                return
-
-            input_data = {
-                "value": replies_map[text]
-            }
-        else:
-            return
-
-        forms_manager.handle_input(bot, chat_id, message_id, module_name, form_name, form_data["current_step"], input_data)
+    manager("forms").handle_input(context, chat_id, message_id, module_name, form_name, form_data["current_step"], input_data)

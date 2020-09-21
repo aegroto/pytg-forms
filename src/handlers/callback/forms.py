@@ -20,7 +20,7 @@ def forms_callback_handler(update, context):
     if query_data[1] == "fixed_reply":
         data_manager = ModulesLoader.load_manager("data")
 
-        form_data = data_manager.load_data("forms", chat_id, module="forms")
+        form_data = data_manager.load_data("forms", "forms", chat_id)
 
         step_name = form_data["current_step"]
 
@@ -38,7 +38,7 @@ def forms_callback_handler(update, context):
             reply_markup = None
         )
 
-        forms_manager.handle_input(bot, chat_id, message_id, form_data["module_name"], form_data["form_name"], step_name, input_data)
+        forms_manager.handle_input(context, chat_id, message_id, form_data["module_name"], form_data["form_name"], step_name, input_data)
         return
 
     if query_data[1] == "jump":
@@ -50,13 +50,13 @@ def forms_callback_handler(update, context):
             reply_markup = None
         )
 
-        forms_manager.set_next_step(bot, chat_id, message_id, next_step=next_step_name)
+        forms_manager.set_next_step(context, chat_id, message_id, next_step=next_step_name)
         return
 
     if query_data[1] == "show":
         form_name = query_data[2]
 
-        forms_manager.start_form(bot, chat_id, form_name)
+        forms_manager.start_form(context, chat_id, form_name)
 
     if query_data[1] == "checkbox_click":
         entry = str(query_data[2])
@@ -65,7 +65,7 @@ def forms_callback_handler(update, context):
         form_id = chat_id
 
         data_manager = ModulesLoader.load_manager("data")
-        form_data = data_manager.load_data("forms", form_id, module="forms")
+        form_data = data_manager.load_data("forms", "forms", form_id)
 
         if entry in form_data["form_entries"][step_output]:
             form_data["form_entries"][step_output].remove(entry)
@@ -79,6 +79,6 @@ def forms_callback_handler(update, context):
 
             form_data["form_entries"][step_output].append(entry)
 
-        data_manager.save_data("forms", form_id, form_data, module="forms")
+        data_manager.save_data("forms","forms", form_id, form_data)
 
-        forms_manager.show_current_step(bot, chat_id, form_data["lang"], message_id)
+        forms_manager.show_current_step(context, chat_id, form_data["lang"], message_id)

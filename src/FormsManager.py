@@ -3,7 +3,7 @@ import telegram, yaml, logging
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, KeyboardButton, ReplyKeyboardMarkup
 
 from modules.pytg.Manager import Manager
-from modules.pytg.ModulesLoader import ModulesLoader
+from modules.pytg.load import manager, get_module_content_folder 
 
 from .utils.reply_markup_builders import *
 from .utils.various import *
@@ -29,22 +29,22 @@ class FormsManager(Manager):
     def add_digester(self, key, func):
         self.digesters[key] = func
 
-    def clear_user_form_data(self, bot, chat_id, delete_messages=True):
+    def clear_user_form_data(self, context, chat_id, delete_messages=True):
         logging.info("Clearing form data for user {}".format(chat_id))
 
-        data_manager = ModulesLoader.load_manager("data")
+        data_manager = manager("data")
 
         form_id = chat_id
-        if not data_manager.has_data("forms", form_id, module="forms"):
+        if not data_manager.has_data("forms", "forms", form_id):
             return
 
-        form_data = data_manager.load_data("forms", form_id, module="forms")
+        form_data = data_manager.load_data("forms", "forms", form_id)
 
         # Clear form messages
         if delete_messages: # (not form_data["digested"]) and delete_messages:
             for form_message_id in form_data["messages"]:
                 try:
-                    bot.deleteMessage(
+                    context.bot.deleteMessage(
                         chat_id = chat_id,
                         message_id = form_message_id
                     )
@@ -52,24 +52,24 @@ class FormsManager(Manager):
                     logging.info("Unable to delete message {}".format(form_message_id))
 
         # Update form data
-        data_manager.delete_data("forms", form_id, module="forms")
+        data_manager.delete_data("forms", "forms", form_id)
 
-    def start_form(self, bot, chat_id, module_name, form_name, form_meta={}, lang=None):
+    def start_form(self, context, chat_id, module_name, form_name, form_meta={}, lang=None):
         logging.info("Starting form {} for {}".format(form_name, chat_id))
 
-        data_manager = ModulesLoader.load_manager("data")
+        data_manager = manager("data")
 
         # Create user's form data
-        self.clear_user_form_data(bot, chat_id)
+        self.clear_user_form_data(context, chat_id)
 
         form_id = chat_id
-        data_manager.create_data("forms", form_id, module="forms")
+        data_manager.create_data("forms", "forms", form_id)
 
         steps = self.load_form_steps(module_name, form_name)
 
         first_step = steps["info"]["first_step"]
 
-        form_data = data_manager.load_data("forms", form_id, module="forms")
+        form_data = data_manager.load_data("forms", "forms", form_id)
 
         form_data["module_name"] = module_name
         form_data["form_name"] = form_name
@@ -77,8 +77,8 @@ class FormsManager(Manager):
         form_data["form_meta"] = form_meta
         
         if not lang:
-            config_manager = ModulesLoader.load_manager("config")
-            lang_settings = config_manager.load_settings_file("forms", "lang")
+            config_manager = manager("config")
+            lang_settings = config_manager.load_settings("forms", "lang")
             lang = lang_settings["default"]
 
         form_data["lang"] = lang
@@ -90,16 +90,18 @@ class FormsManager(Manager):
             for entry in default_entries.keys():
                 form_data["form_entries"][entry] = default_entries[entry]
 
-        data_manager.save_data("forms", form_id, form_data, module="forms")
+        data_manager.save_data("forms","forms", form_id, form_data)
 
-        self.show_current_step(bot, chat_id, lang)
+        self.show_current_step(context, chat_id, lang)
 
-    def set_next_step(self, bot, chat_id, message_id, next_step=None):
-        data_manager = ModulesLoader.load_manager("data")
+    def set_next_step(self, context, chat_id, message_id, next_step=None):
+        bot = context.bot
+
+        data_manager = manager("data")
 
         form_id = chat_id
 
-        form_data = data_manager.load_data("forms", form_id, module="forms")
+        form_data = data_manager.load_data("forms", "forms", form_id)
         module_name = form_data["module_name"]
         form_name = form_data["form_name"]
         form_steps = self.load_form_steps(module_name, form_name)
@@ -108,7 +110,7 @@ class FormsManager(Manager):
 
         # Delete previous message if 'clear' is true
         if "clear" in current_step_data and current_step_data["clear"]:
-            bot.deleteMessage(
+            context.bot.deleteMessage(
                 chat_id = chat_id,
                 message_id = message_id
             )
@@ -120,34 +122,34 @@ class FormsManager(Manager):
 
         if next_step and next_step != "None":
             if next_step == "_RESET":
-                self.clear_user_form_data(bot, chat_id, False)
+                self.clear_user_form_data(context, chat_id, False)
                 return 
 
             form_data["current_step"] = next_step
-            data_manager.save_data("forms", form_id, form_data, module="forms")
-            self.show_current_step(bot, chat_id, form_data["lang"])
+            data_manager.save_data("forms","forms", form_id, form_data)
+            self.show_current_step(context, chat_id, form_data["lang"])
         else:
             if "void" in form_steps["info"] and form_steps["info"]["void"]:
                 return
 
-            self.digest_form(bot, chat_id, form_id)
+            self.digest_form(context, chat_id, form_id)
 
-    def digest_form(self, bot, chat_id, form_id):
+    def digest_form(self, context, chat_id, form_id):
         logging.info("Digesting form for {}".format(chat_id))
 
-        data_manager = ModulesLoader.load_manager("data")
+        data_manager = manager("data")
 
         # Load form's data 
-        form_data = data_manager.load_data("forms", form_id, module="forms")
+        form_data = data_manager.load_data("forms", "forms", form_id)
         form_name = form_data["form_name"]
 
         # Update digestion flag
         form_data["digested"] = True
-        data_manager.save_data("forms", form_id, form_data, module="forms")
+        data_manager.save_data("forms","forms", form_id, form_data)
 
         # Digest the form
         digester = self.digesters[form_name]
-        digester(bot, chat_id, form_data["form_entries"], form_data["form_meta"])
+        digester(context, chat_id, form_data["form_entries"], form_data["form_meta"])
 
     def format_step_text(self, step_text, form_entries):
         for key in form_entries.keys():
@@ -156,12 +158,12 @@ class FormsManager(Manager):
 
         return step_text
 
-    def show_current_step(self, bot, chat_id, lang, message_id=None):
-        data_manager = ModulesLoader.load_manager("data")
+    def show_current_step(self, context, chat_id, lang, message_id=None):
+        data_manager = manager("data")
 
         form_id = chat_id
 
-        form_data = data_manager.load_data("forms", form_id, module="forms")
+        form_data = data_manager.load_data("forms", "forms", form_id)
         module_name = form_data["module_name"]
         form_name = form_data["form_name"]
         form_steps = self.load_form_steps(module_name, form_name)
@@ -233,7 +235,7 @@ class FormsManager(Manager):
 
             if step_output not in form_data["form_entries"].keys():
                 form_data["form_entries"][step_output] = []
-                data_manager.save_data("forms", form_id, form_data, module="forms")
+                data_manager.save_data("forms","forms", form_id, form_data)
 
             entries = current_step_data["entries"]
             reply_markup = checkbox_list_reply_markup(entries, form_data, current_step_data)
@@ -245,7 +247,7 @@ class FormsManager(Manager):
 
         # Send or edit message
         if message_id:
-            bot.editMessageText(
+            context.bot.editMessageText(
                 chat_id=chat_id,
                 message_id=message_id,
                 text=step_text,
@@ -274,7 +276,7 @@ class FormsManager(Manager):
 
             # Send complete message
             if not media_data:
-                sent_message = bot.sendMessage(
+                sent_message = context.bot.sendMessage(
                     chat_id=chat_id,
                     text=step_text,
                     parse_mode=telegram.ParseMode.MARKDOWN,
@@ -283,7 +285,7 @@ class FormsManager(Manager):
                 )
             else:
                 if media_data["type"] == "photo":
-                    sent_message = bot.sendPhoto(
+                    sent_message = context.bot.sendPhoto(
                         chat_id=chat_id,
                         caption=step_text,
                         photo=media_data["path"],
@@ -292,7 +294,7 @@ class FormsManager(Manager):
                         disable_web_page_preview = disable_web_page_preview
                     )
                 elif media_data["type"] == "video":
-                    sent_message = bot.sendVideo(
+                    sent_message = context.bot.sendVideo(
                         chat_id=chat_id,
                         caption=step_text,
                         video=media_data["path"],
@@ -304,18 +306,18 @@ class FormsManager(Manager):
                     logging.exception("Unknown media type")
 
             # Add new message IDs
-            if data_manager.has_data("forms",form_id):
-                form_data = data_manager.load_data("forms", form_id, module="forms")
+            if data_manager.has_data("forms", "forms", form_id):
+                form_data = data_manager.load_data("forms", "forms", form_id)
                 form_data["messages"].append(sent_message.message_id)
-                data_manager.save_data("forms", form_id, form_data, module="forms")
+                data_manager.save_data("forms","forms", form_id, form_data)
 
         if next_step is not "__NULL":
-            self.set_next_step(bot, chat_id, sent_message.message_id, next_step = next_step)
+            self.set_next_step(context, chat_id, sent_message.message_id, next_step = next_step)
 
-    def handle_input(self, bot, chat_id, message_id, module_name, form_name, step_name, input_data):
+    def handle_input(self, context, chat_id, message_id, module_name, form_name, step_name, input_data):
         logging.info("Handling input of {} on form {} (step name = {}, input data = {})".format(chat_id, form_name, step_name, input_data))
 
-        data_manager = ModulesLoader.load_manager("data")
+        data_manager = manager("data")
 
         next_step_name = None
 
@@ -349,19 +351,19 @@ class FormsManager(Manager):
                 step_output = input_data["animation_id"]
 
             current_user_form_id = chat_id
-            form_data = data_manager.load_data("forms", current_user_form_id, module="forms")
+            form_data = data_manager.load_data("forms", "forms", current_user_form_id)
             form_data["form_entries"][step_data["output"]] = step_output
-            data_manager.save_data("forms", current_user_form_id, form_data, module="forms")
+            data_manager.save_data("forms", "forms", current_user_form_id, form_data)
 
-        self.set_next_step(bot, chat_id, message_id, next_step=next_step_name)
+        self.set_next_step(context, chat_id, message_id, next_step=next_step_name)
 
     def load_form_steps(self, module_name, form_name):
-        module_folder = ModulesLoader.get_module_content_folder(module_name)
+        module_folder = get_module_content_folder(module_name)
 
         return yaml.safe_load(open("{}/forms/formats/{}.yaml".format(module_folder, form_name), "r", encoding="utf8"))
 
     def load_form_phrases(self, module_name, form_name, lang):
-        module_folder = ModulesLoader.get_module_content_folder(module_name)
+        module_folder = get_module_content_folder(module_name)
 
         return yaml.safe_load(open("{}/forms/phrases/{}/{}.yaml".format(module_folder, lang, form_name), "r", encoding="utf8"))
 
