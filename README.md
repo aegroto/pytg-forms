@@ -26,12 +26,14 @@ checkbox_cl: {
 ```
 
 # Text field 
+```
 textfield_tf: {
   type: text_field,
   phrase: PHRASE_ID,
   next_step: STEP_ID,
   output: OUTPUT_VAR_NAME
 }
+```
 
 # Fixed reply
 ```
