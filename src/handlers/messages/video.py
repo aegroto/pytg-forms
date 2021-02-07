@@ -1,6 +1,6 @@
 import telegram, logging
 
-from modules.pytg.ModulesLoader import ModulesLoader
+from pytg.load import manager
 
 def video_message_handler(update, context):
     bot = context.bot
@@ -18,12 +18,12 @@ def video_message_handler(update, context):
 
     logging.info("Received video message update from {} ({}) in chat {}".format(username, user_id, chat_id))
 
-    data_manager = ModulesLoader.load_manager("data")
+    data_manager = manager("data")
 
     # Check if the bot is waiting for a form input 
     if data_manager.has_data("forms", "forms", chat_id):
         current_user_form_id = chat_id
-        forms_manager = ModulesLoader.load_manager("forms")
+        forms_manager = manager("forms")
 
         form_data = data_manager.load_data("forms", "forms", current_user_form_id)
 
@@ -48,6 +48,6 @@ def video_message_handler(update, context):
             "video_url": video_url 
         }
 
-        forms_manager = ModulesLoader.load_manager("forms")
+        forms_manager = manager("forms")
         forms_manager.handle_input(context, chat_id, message_id, module_name, form_name, form_data["current_step"], input_data)
 

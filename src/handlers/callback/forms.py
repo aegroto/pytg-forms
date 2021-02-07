@@ -1,11 +1,11 @@
-import telegram, logging
+import logging
 
-from modules.pytg.ModulesLoader import ModulesLoader
+from pytg.load import manager
 
 def forms_callback_handler(update, context):
     bot = context.bot
 
-    forms_manager = ModulesLoader.load_manager("forms")
+    forms_manager = manager("forms")
 
     query = update.callback_query
     query_data = query.data.split(",")
@@ -18,7 +18,7 @@ def forms_callback_handler(update, context):
     logging.info("Handling forms callback data from {}: {}".format(chat_id, query_data))
 
     if query_data[1] == "fixed_reply":
-        data_manager = ModulesLoader.load_manager("data")
+        data_manager = manager("data")
 
         form_data = data_manager.load_data("forms", "forms", chat_id)
 
@@ -54,9 +54,10 @@ def forms_callback_handler(update, context):
         return
 
     if query_data[1] == "show":
-        form_name = query_data[2]
+        module_name = query_data[2]
+        form_name = query_data[3]
 
-        forms_manager.start_form(context, chat_id, form_name)
+        forms_manager.start_form(context, chat_id, module_name, form_name)
 
     if query_data[1] == "checkbox_click":
         entry = str(query_data[2])
@@ -64,7 +65,7 @@ def forms_callback_handler(update, context):
 
         form_id = chat_id
 
-        data_manager = ModulesLoader.load_manager("data")
+        data_manager = manager("data")
         form_data = data_manager.load_data("forms", "forms", form_id)
 
         if entry in form_data["form_entries"][step_output]:

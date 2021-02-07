@@ -1,11 +1,11 @@
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, KeyboardButton, ReplyKeyboardMarkup
 
-from modules.pytg.ModulesLoader import ModulesLoader
+from pytg.load import manager
 
 from .various import append_jump_button
 
 def fixed_reply_reply_markup(options, form_data, current_step_data):
-    forms_manager = ModulesLoader.load_manager("forms")
+    forms_manager = manager("forms")
     phrases = forms_manager.load_form_phrases(form_data["module_name"], form_data["form_name"], form_data["lang"])
 
     menu_layout = []

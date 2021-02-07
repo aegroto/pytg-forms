@@ -2,23 +2,13 @@ import telegram, yaml, logging
 
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, KeyboardButton, ReplyKeyboardMarkup
 
-from modules.pytg.Manager import Manager
-from modules.pytg.load import manager, get_module_content_folder 
+from pytg.Manager import Manager
+from pytg.load import manager, get_module_content_folder 
 
 from .utils.reply_markup_builders import *
 from .utils.various import *
 
 class FormsManager(Manager):
-    @staticmethod
-    def initialize():
-        FormsManager.__instance = FormsManager()
-
-        return
-
-    @staticmethod
-    def load():
-        return FormsManager.__instance
-
     def __init__(self):
         self.digesters = { }
 
@@ -179,12 +169,21 @@ class FormsManager(Manager):
 
                 current_step_data[extern_key] = extern_data
 
-        reply_markup = None
         next_step = "__NULL"
 
         phrases = self.load_form_phrases(module_name, form_name, lang)
 
         step_text = phrases[current_step_data["phrase"]]
+
+        if "reply_markup" in current_step_data.keys():
+            reply_markup_data = current_step_data["reply_markup"]
+
+            menu_module = module_name if "module" not in reply_markup_data else reply_markup_data["module"]
+            menu_id = reply_markup_data["id"]
+
+            reply_markup = manager("menu").create_reply_markup(menu_module, menu_id, meta=form_data["form_meta"])
+        else:
+            reply_markup = None
 
         if "format" in current_step_data.keys() and current_step_data["format"]:
             form_entries = form_data["form_entries"]
@@ -198,12 +197,6 @@ class FormsManager(Manager):
 
         # Message 
         if current_step_data["type"] == "message":
-            # Check if the step requires a back button
-            if "previous_step" in current_step_data.keys():
-                menu_layout = []
-                append_jump_button(menu_layout, "Back", current_step_data["previous_step"])
-                reply_markup = InlineKeyboardMarkup(menu_layout)
-
             next_step = current_step_data["next_step"]
 
         # Text or image field
@@ -211,13 +204,7 @@ class FormsManager(Manager):
             current_step_data["type"] == "image_field" or
             current_step_data["type"] == "video_field" or
             current_step_data["type"] == "animation_field"):
-            reply_markup = None
-
-            # Check if the step requires a back button
-            if "previous_step" in current_step_data.keys():
-                menu_layout = []
-                append_jump_button(menu_layout, "Back", current_step_data["previous_step"])
-                reply_markup = InlineKeyboardMarkup(menu_layout)
+            pass
 
         # Fixed reply
         if current_step_data["type"] == "fixed_reply":

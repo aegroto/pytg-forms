@@ -1,6 +1,6 @@
-import telegram, logging
+import logging
 
-from modules.pytg.load import manager
+from pytg.load import manager
 
 logger = logging.getLogger(__name__)
 
